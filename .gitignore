@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+
+# Storage & Large Output Media
+storage/output/*
+storage/temp/*
+!storage/output/.gitkeep
+!storage/temp/.gitkeep
+
+# Build Outputs
+frontend/dist/
+frontend/build/
+*.egg-info/
+.pytest_cache/
+
+# Environment Variables & Local Config
+.env
+.env.local
+*.log
+
+# IDE & System Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

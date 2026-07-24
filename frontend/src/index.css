@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-background: #0a0a0f;
+    --color-surface: #12121a;
+    --color-border: #1e1e2e;
+    --color-accent: #6c63ff;
+    --color-accent2: #a855f7;
+    --color-accent3: #06b6d4;
+    --color-text: #e2e8f0;
+    --color-text-muted: #64748b;
+    --color-success: #10b981;
+    --color-warning: #f59e0b;
+    --color-error: #ef4444;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text);
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Clean dark scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
+  }
+}
+
+@layer components {
+  /* Clean Glass Card */
+  .glass-card {
+    background: #12121a;
+    border: 1px solid #1e1e2e;
+    border-radius: 0.875rem;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .glass-card:hover {
+    border-color: #2e2e48;
+  }
+
+  /* Flat Card */
+  .glow-card {
+    background: #12121a;
+    border: 1px solid #1e1e2e;
+    border-radius: 0.875rem;
+    transition: border-color 0.2s ease;
+  }
+
+  .glow-card:hover {
+    border-color: #2e2e48;
+  }
+
+  /* Solid Gradient Button */
+  .gradient-btn {
+    background: linear-gradient(135deg, #6c63ff 0%, #a855f7 100%);
+    color: white;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    padding: 0.5rem 1.25rem;
+    transition: opacity 0.2s ease, transform 0.15s ease;
+  }
+
+  .gradient-btn:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+  }
+
+  /* Clean Gradient Text */
+  .gradient-text {
+    background: linear-gradient(135deg, #6c63ff, #a855f7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Badge pill */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+}

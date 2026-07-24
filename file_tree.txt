@@ -1,0 +1,118 @@
+vistaforge/
+├── .gitignore
+├── README.md
+├── start.ps1
+├── backend/
+│   ├── .env
+│   ├── .env.example
+│   ├── main.py
+│   ├── config.py
+│   ├── database.py
+│   ├── requirements.txt
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── clip.py
+│   │   ├── generate.py
+│   │   ├── jobs.py
+│   │   ├── media.py
+│   │   ├── projects.py
+│   │   ├── settings.py
+│   │   └── setup.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── project.py
+│   │   └── job.py
+│   ├── schemas/
+│   │   ├── __init__.py
+│   │   ├── project.py
+│   │   └── stage.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── clip_mode/
+│   │   │   ├── __init__.py
+│   │   │   └── clip_processor.py
+│   │   ├── llm/
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py
+│   │   │   ├── factory.py
+│   │   │   ├── ollama_provider.py
+│   │   │   └── openai_compat.py
+│   │   ├── media/
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py
+│   │   │   ├── downloader.py
+│   │   │   ├── pexels_provider.py
+│   │   │   └── pixabay_provider.py
+│   │   ├── pipeline/
+│   │   │   ├── __init__.py
+│   │   │   └── stage_runner.py
+│   │   ├── render/
+│   │   │   ├── __init__.py
+│   │   │   └── ffmpeg_renderer.py
+│   │   ├── script/
+│   │   │   ├── __init__.py
+│   │   │   ├── metadata_generator.py
+│   │   │   ├── scene_planner.py
+│   │   │   └── script_generator.py
+│   │   ├── setup/
+│   │   │   ├── __init__.py
+│   │   │   └── detector.py
+│   │   ├── subtitle/
+│   │   │   ├── __init__.py
+│   │   │   └── whisper_service.py
+│   │   └── tts/
+│   │       ├── __init__.py
+│   │       ├── base.py
+│   │       ├── edge_tts_provider.py
+│   │       ├── factory.py
+│   │       └── kokoro_tts.py
+└── frontend/
+    ├── index.html
+    ├── package.json
+    ├── tailwind.config.js
+    ├── tsconfig.json
+    ├── tsconfig.node.json
+    ├── vite.config.ts
+    └── src/
+        ├── App.tsx
+        ├── main.tsx
+        ├── index.css
+        ├── vite-env.d.ts
+        ├── types/
+        │   └── index.ts
+        ├── api/
+        │   ├── client.ts
+        │   ├── generate.ts
+        │   ├── media.ts
+        │   ├── projects.ts
+        │   └── setup.ts
+        ├── store/
+        │   ├── projectStore.ts
+        │   └── settingsStore.ts
+        ├── hooks/
+        │   ├── useProject.ts
+        │   └── useSSE.ts
+        ├── components/
+        │   ├── layout/
+        │   │   ├── Layout.tsx
+        │   │   └── Sidebar.tsx
+        │   └── ui/
+        │       ├── Badge.tsx
+        │       ├── Button.tsx
+        │       ├── EmptyState.tsx
+        │       ├── Input.tsx
+        │       ├── Modal.tsx
+        │       ├── ProgressBar.tsx
+        │       ├── Select.tsx
+        │       ├── Spinner.tsx
+        │       ├── StageCard.tsx
+        │       ├── Toast.tsx
+        │       ├── VideoCard.tsx
+        │       └── useToast.ts
+        └── pages/
+            ├── ClipMode.tsx
+            ├── Dashboard.tsx
+            ├── NewProject.tsx
+            ├── ProjectDetail.tsx
+            ├── Settings.tsx
+            └── SetupWizard.tsx
