@@ -56,14 +56,7 @@ def update_settings(new_settings: Dict[str, Any]):
 @router.get("/providers")
 def list_providers():
     return [
-        {"id": "omniroute", "name": "OmniRoute AI Gateway (Recommended)"},
-        {"id": "auto", "name": "Auto (Smart routing)"},
-        {"id": "ollama", "name": "Ollama (Local)"},
-        {"id": "openai_compat", "name": "OpenAI Compatible"},
-        {"id": "lm_studio", "name": "LM Studio"},
-        {"id": "vllm", "name": "vLLM"},
-        {"id": "openrouter", "name": "OpenRouter"},
-        {"id": "custom", "name": "Custom Endpoint"}
+        {"id": "omniroute", "name": "OmniRoute AI Gateway (Universal Router)"}
     ]
 
 @router.get("/tts-engines")

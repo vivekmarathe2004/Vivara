@@ -91,47 +91,47 @@ export const Settings: React.FC = () => {
         {/* ── Right Content Area ─────────────────────────────────── */}
         <div className="md:col-span-3">
 
-          {/* AI / LLM Configuration */}
+          {/* AI / LLM Configuration (OmniRoute Gateway Exclusive) */}
           {activeTab === 'llm' && (
             <section className="glass-card p-6 space-y-6 animate-fade-in">
-              <div className="flex items-center gap-2 border-b border-border/50 pb-4">
-                <Cpu className="w-5 h-5 text-accent" />
-                <h2 className="text-lg font-bold">AI / LLM Gateway Router</h2>
+              <div className="flex items-center justify-between border-b border-border/50 pb-4">
+                <div className="flex items-center gap-2">
+                  <Cpu className="w-5 h-5 text-accent" />
+                  <div>
+                    <h2 className="text-lg font-bold">OmniRoute AI Gateway</h2>
+                    <p className="text-xs text-textMuted">Universal model router for local & cloud AI models</p>
+                  </div>
+                </div>
+                <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full text-xs font-mono font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> ACTIVE GATEWAY
+                </span>
               </div>
               <div className="space-y-5">
-                <Select
-                  label="Provider Engine"
-                  value={formData.llm_provider || 'omniroute'}
-                  onChange={(e) => handleChange('llm_provider', e.target.value)}
-                  options={[
-                    { label: 'OmniRoute AI Gateway (Recommended)', value: 'omniroute' },
-                    { label: 'Auto (smart provider routing)',     value: 'auto' },
-                    { label: 'Ollama (Local)',                     value: 'ollama' },
-                    { label: 'OpenAI Compatible',                  value: 'openai_compat' },
-                    { label: 'LM Studio',                          value: 'lm_studio' },
-                    { label: 'vLLM',                               value: 'vllm' },
-                    { label: 'OpenRouter',                         value: 'openrouter' },
-                    { label: 'Custom Endpoint',                    value: 'custom' },
-                  ]}
-                />
                 <Input
-                  label="Base Endpoint URL"
-                  value={formData.llm_base_url || 'http://localhost:7777/v1'}
+                  label="OmniRoute Endpoint URL"
+                  value={formData.llm_base_url || 'http://localhost:20128/v1'}
                   onChange={(e) => handleChange('llm_base_url', e.target.value)}
-                  placeholder="e.g. http://localhost:7777/v1 or http://localhost:11434"
+                  placeholder="http://localhost:20128/v1"
+                />
+                <Select
+                  label="OmniRoute Model Route / Category"
+                  value={formData.llm_model || 'auto'}
+                  onChange={(e) => handleChange('llm_model', e.target.value)}
+                  options={[
+                    { label: 'Auto — Best Free Model (Recommended)', value: 'auto' },
+                    { label: 'auto/best-free — Top Free Model Route', value: 'auto/best-free' },
+                    { label: 'auto/best-fast — Ultra Fast Speed Route', value: 'auto/best-fast' },
+                    { label: 'auto/best-coding — Deep Reasoning Route', value: 'auto/best-coding' },
+                    { label: 'auto/chat — General Conversation Route', value: 'auto/chat' },
+                    { label: 'auto/smart — Maximum Intelligence Route', value: 'auto/smart' },
+                  ]}
                 />
                 <Input
                   label="API Key (Optional)"
                   type="password"
                   value={formData.llm_api_key || ''}
                   onChange={(e) => handleChange('llm_api_key', e.target.value)}
-                  placeholder="Leave blank for local providers"
-                />
-                <Input
-                  label="Model Identifier / Alias"
-                  value={formData.llm_model || 'llama3.2'}
-                  onChange={(e) => handleChange('llm_model', e.target.value)}
-                  placeholder="e.g. auto, llama3.2, claude-3-5-sonnet"
+                  placeholder="Leave blank for local OmniRoute gateway"
                 />
               </div>
             </section>

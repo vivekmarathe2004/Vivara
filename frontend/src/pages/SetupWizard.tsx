@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
-import { CheckCircle2, XCircle, ChevronRight, Settings, Cpu, HardDrive } from 'lucide-react';
+import { CheckCircle2, XCircle, ChevronRight, Settings, Cpu } from 'lucide-react';
 
 export const SetupWizard: React.FC = () => {
   const [step, setStep] = React.useState(1);
@@ -129,39 +129,29 @@ export const SetupWizard: React.FC = () => {
           
           {step === 4 && (
             <div className="animate-fade-in space-y-6">
-              <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold">Choose your AI brain</h2>
-                <p className="text-textMuted">Select how you want to generate scripts</p>
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold">OmniRoute AI Gateway</h2>
+                <p className="text-textMuted text-xs">Universal model router for local & cloud AI models</p>
               </div>
               
-              <div className="grid grid-cols-3 gap-3">
-                <div className="p-4 bg-accent/10 border-2 border-accent rounded-xl cursor-pointer">
-                  <Cpu className="w-6 h-6 text-accent mb-2" />
-                  <h3 className="font-bold text-sm">OmniRoute</h3>
-                  <p className="text-[11px] text-textMuted mt-1">Recommended. Universal AI gateway for any local or cloud model.</p>
-                </div>
-                
-                <div className="p-4 bg-surface border-2 border-border hover:border-border/80 rounded-xl cursor-pointer transition-colors">
-                  <Cpu className="w-6 h-6 text-textMuted mb-2" />
-                  <h3 className="font-bold text-sm">Ollama</h3>
-                  <p className="text-[11px] text-textMuted mt-1">Direct local LLM server running on your machine.</p>
-                </div>
-
-                <div className="p-4 bg-surface border-2 border-border hover:border-border/80 rounded-xl cursor-pointer transition-colors">
-                  <HardDrive className="w-6 h-6 text-textMuted mb-2" />
-                  <h3 className="font-bold text-sm">OpenRouter</h3>
-                  <p className="text-[11px] text-textMuted mt-1">Cloud models like Claude, GPT-4, Llama 3.</p>
+              <div className="p-5 bg-accent/10 border-2 border-accent rounded-xl">
+                <div className="flex items-center gap-3">
+                  <Cpu className="w-8 h-8 text-accent" />
+                  <div>
+                    <h3 className="font-bold text-base">OmniRoute Universal AI Platform</h3>
+                    <p className="text-xs text-textMuted mt-0.5">Unified OpenAI-compatible gateway running at http://localhost:20128/v1</p>
+                  </div>
                 </div>
               </div>
               
-              <div className="p-5 bg-surface border border-border/50 rounded-xl space-y-4 mt-2">
+              <div className="p-5 bg-surface border border-border/50 rounded-xl space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Base URL</label>
-                  <input type="text" defaultValue="http://localhost:7777/v1" className="w-full bg-background border border-border rounded-lg p-2.5 text-sm focus:border-accent outline-none" />
+                  <label className="block text-sm font-medium mb-1">OmniRoute Base Endpoint URL</label>
+                  <input type="text" defaultValue="http://localhost:20128/v1" className="w-full bg-background border border-border rounded-lg p-2.5 text-sm focus:border-accent outline-none" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Model Name / Alias</label>
-                  <input type="text" defaultValue="auto" placeholder="e.g. auto, llama3.2, claude-3-5-sonnet" className="w-full bg-background border border-border rounded-lg p-2.5 text-sm focus:border-accent outline-none" />
+                  <label className="block text-sm font-medium mb-1">OmniRoute Model Route</label>
+                  <input type="text" defaultValue="auto" placeholder="e.g. auto, auto/best-free, auto/best-fast" className="w-full bg-background border border-border rounded-lg p-2.5 text-sm focus:border-accent outline-none" />
                 </div>
               </div>
               
