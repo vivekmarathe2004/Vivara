@@ -28,7 +28,7 @@ def update_settings(new_settings: Dict[str, Any]):
             key, _ = line.split("=", 1)
             key_strip = key.strip()
             if key_strip.lower() in new_settings:
-                val = new_settings[key_strip.lower()]
+                val = str(new_settings[key_strip.lower()]).replace("\n", "").replace("\r", "")
                 if val != "***":
                     new_lines.append(f"{key_strip}={val}\n")
                     if hasattr(settings, key_strip.lower()):
@@ -43,9 +43,10 @@ def update_settings(new_settings: Dict[str, Any]):
             
     for k, v in new_settings.items():
         if k not in updated_keys and v != "***":
-            new_lines.append(f"{k.upper()}={v}\n")
+            clean_v = str(v).replace("\n", "").replace("\r", "")
+            new_lines.append(f"{k.upper()}={clean_v}\n")
             if hasattr(settings, k.lower()):
-                setattr(settings, k.lower(), v)
+                setattr(settings, k.lower(), clean_v)
             
     with open(".env", "w") as f:
         f.writelines(new_lines)

@@ -29,6 +29,8 @@ from backend.services.script.scene_planner import ScenePlanner
 from backend.services.script.metadata_generator import MetadataGenerator
 from backend.services.media.pexels_provider import PexelsProvider
 from backend.services.media.pixabay_provider import PixabayProvider
+from backend.services.media.unsplash_provider import UnsplashProvider
+from backend.services.media.openverse_provider import OpenverseProvider
 from backend.services.render.ffmpeg_renderer import FFmpegRenderer
 
 # Storage root (one level above backend/)
@@ -48,15 +50,7 @@ def _update_stage(db: Session, stage: PipelineStage, **kwargs):
 
 
 class PipelineStageRunner:
-    """Runs individual pipeline stages for a given project.
-
-    Each public method opens its own DB session so it can be safely
-    called from a background task (outside the request lifecycle).
-    """
-
-    # ──────────────────────────────────────────────────────────────────────────
-    # Public API
-    # ──────────────────────────────────────────────────────────────────────────
+    """Runs individual pipeline stages for a given project."""
 
     async def run_stage(self, project_id: str, stage_name: str) -> None:
         """Run or re-run a single named stage for *project_id*."""
@@ -94,6 +88,12 @@ class PipelineStageRunner:
                 started_at=datetime.datetime.utcnow(),
                 completed_at=None,
             )
+
+            # Update parent project status to running
+            project = db.query(Project).filter(Project.id == project_id).first()
+            if project:
+                project.status = "running"
+                db.commit()
         finally:
             db.close()
 
@@ -120,6 +120,10 @@ class PipelineStageRunner:
                         log=traceback.format_exc(),
                         completed_at=datetime.datetime.utcnow(),
                     )
+                project = db.query(Project).filter(Project.id == project_id).first()
+                if project:
+                    project.status = "error"
+                    db.commit()
             finally:
                 db.close()
 
@@ -203,7 +207,6 @@ class PipelineStageRunner:
                 log=log,
                 completed_at=datetime.datetime.utcnow(),
             )
-            # Also update the parent project's output_path if this is the render stage
             if stage_name == "render":
                 project = self._get_project(db, project_id)
                 project.output_path = result_path
@@ -247,7 +250,6 @@ class PipelineStageRunner:
 
         self._set_progress(project_id, "script", 95, "Saving script...")
 
-        # Persist script + metadata back to the project
         proj_dir = self._project_dir(project_id)
         script_path = proj_dir / "script.json"
         script_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
@@ -349,12 +351,16 @@ class PipelineStageRunner:
 
         self._set_progress(project_id, "media", 5, "Initialising media providers...")
 
-        # Try Pexels first, fall back to Pixabay
         providers = []
         if settings.pexels_api_key:
             providers.append(PexelsProvider(settings.pexels_api_key))
         if settings.pixabay_api_key:
             providers.append(PixabayProvider(settings.pixabay_api_key))
+        if settings.unsplash_api_key:
+            providers.append(UnsplashProvider(settings.unsplash_api_key))
+        
+        # Always append Openverse (100% free open license media, zero key required!)
+        providers.append(OpenverseProvider())
 
         media_dir = proj_dir / "media"
         media_dir.mkdir(exist_ok=True)
@@ -372,11 +378,15 @@ class PipelineStageRunner:
             for provider in providers:
                 try:
                     results = await provider.search_videos(query, per_page=3)
+                    if not results:
+                        results = await provider.search_images(query, per_page=3)
+
                     if results:
                         clip = results[0]
-                        dl_url = clip.get("download_url", "")
+                        dl_url = clip.get("download_url") or clip.get("preview_url", "")
                         if dl_url:
-                            out_path = str(media_dir / f"scene_{idx:03d}.mp4")
+                            ext = ".jpg" if clip.get("type") == "image" else ".mp4"
+                            out_path = str(media_dir / f"scene_{idx:03d}{ext}")
                             await provider.download(dl_url, out_path)
                             media_manifest.append({
                                 "scene_index": idx,
@@ -390,7 +400,6 @@ class PipelineStageRunner:
                     continue
 
             if not downloaded:
-                # Record missing so renderer can handle gracefully
                 media_manifest.append({
                     "scene_index": idx,
                     "query": query,
@@ -404,14 +413,13 @@ class PipelineStageRunner:
         found = sum(1 for m in media_manifest if m["path"])
         self._mark_done(
             project_id, "media", str(manifest_path),
-            f"Downloaded {found}/{len(scenes)} media clips."
+            f"Downloaded {found}/{len(scenes)} media items."
         )
 
     async def _run_render(self, project_id: str) -> None:
         """Stage 5: Render final video with FFmpeg."""
         proj_dir = self._project_dir(project_id)
 
-        # Gather required files
         db = _get_db()
         try:
             project = self._get_project(db, project_id)
@@ -453,7 +461,6 @@ class PipelineStageRunner:
             progress_callback=progress_cb,
         )
 
-        # Generate thumbnail
         try:
             thumb_path = str(proj_dir / "thumbnail.jpg")
             await renderer.generate_thumbnail(final_path, thumb_path)
@@ -465,7 +472,7 @@ class PipelineStageRunner:
             finally:
                 db.close()
         except Exception:
-            pass  # Thumbnail is non-critical
+            pass
 
         self._mark_done(
             project_id, "render", final_path,

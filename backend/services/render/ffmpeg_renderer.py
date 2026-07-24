@@ -1,7 +1,7 @@
 """
 FFmpeg Renderer
 ---------------
-Assembles stock video clips, voiceover audio, and subtitles into a final MP4.
+Assembles stock video clips, images, voiceover audio, and subtitles into a final MP4.
 Supports NVENC (NVIDIA), AMF (AMD), and CPU fallback automatically.
 """
 from __future__ import annotations
@@ -18,11 +18,7 @@ class FFmpegRenderer:
     def __init__(self, ffmpeg_path: str = "ffmpeg", gpu_enabled: bool = True):
         self.ffmpeg = ffmpeg_path
         self.gpu_enabled = gpu_enabled
-        self._gpu_info: dict | None = None  # cached after first call
-
-    # ──────────────────────────────────────────────────────────────────────────
-    # GPU detection
-    # ──────────────────────────────────────────────────────────────────────────
+        self._gpu_info: dict | None = None
 
     def detect_gpu(self) -> dict:
         """Check which GPU video encoders are available via FFmpeg."""
@@ -52,7 +48,6 @@ class FFmpegRenderer:
         except Exception:
             pass
 
-        # Also try nvidia-smi to get GPU name
         try:
             smi = subprocess.run(
                 ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
@@ -65,10 +60,6 @@ class FFmpegRenderer:
 
         self._gpu_info = result
         return result
-
-    # ──────────────────────────────────────────────────────────────────────────
-    # Codec selection
-    # ──────────────────────────────────────────────────────────────────────────
 
     def _video_codec(self) -> list[str]:
         """Return the best available video codec args for this machine."""
@@ -84,10 +75,6 @@ class FFmpegRenderer:
             return ["-c:v", "h264_qsv", "-preset", "medium"]
         return ["-c:v", "libx264", "-preset", "fast", "-crf", "23"]
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # Main render
-    # ──────────────────────────────────────────────────────────────────────────
-
     async def render_video(
         self,
         project_id: str,
@@ -98,12 +85,6 @@ class FFmpegRenderer:
         settings: dict,
         progress_callback,
     ) -> str:
-        """
-        Compose scenes + audio + subtitles into a final MP4.
-
-        scenes: list of {path, scene_index, query, source}
-        Returns the final output_path.
-        """
         await asyncio.get_event_loop().run_in_executor(
             None,
             self._render_sync,
@@ -131,12 +112,10 @@ class FFmpegRenderer:
         aspect = settings.get("aspect_ratio", "16:9")
         width, height = (1920, 1080) if aspect == "16:9" else (1080, 1920)
 
-        # ── Step 1: Build concat list ─────────────────────────────────────────
         progress_callback(10, "Building scene list...")
         valid_scenes = [s for s in scenes if s.get("path") and Path(s["path"]).exists()]
 
         if not valid_scenes:
-            # Fallback: create a blank video if no media found
             blank_path = str(Path(output_path).parent / "blank.mp4")
             subprocess.run(
                 [
@@ -152,14 +131,12 @@ class FFmpegRenderer:
         concat_file = str(Path(output_path).parent / f"{project_id}_concat.txt")
         with open(concat_file, "w", encoding="utf-8") as f:
             for s in valid_scenes:
-                # FFmpeg concat requires forward slashes
                 abs_path = str(Path(s["path"]).resolve()).replace("\\", "/")
                 f.write(f"file '{abs_path}'\n")
 
-        # ── Step 2: Concat clips ──────────────────────────────────────────────
         progress_callback(20, "Concatenating clips...")
         concat_out = str(Path(output_path).parent / f"{project_id}_concat.mp4")
-        scale_filter = f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2"
+        scale_filter = f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,format=yuv420p"
 
         concat_cmd = [
             self.ffmpeg, "-y",
@@ -167,23 +144,22 @@ class FFmpegRenderer:
             "-i", concat_file,
             "-vf", scale_filter,
             "-c:v", "libx264", "-preset", "fast",
-            "-an",  # no audio yet
+            "-an",
             concat_out,
         ]
         res = subprocess.run(concat_cmd, capture_output=True, text=True)
         if res.returncode != 0:
             raise RuntimeError(f"Concat failed:\n{res.stderr[-2000:]}")
 
-        # ── Step 3: Mix audio & subtitles ─────────────────────────────────────
         progress_callback(60, "Mixing audio and subtitles...")
         video_filters = []
         inputs = ["-i", concat_out]
 
-        if audio_path and Path(audio_path).exists():
+        has_audio = audio_path and Path(audio_path).exists()
+        if has_audio:
             inputs += ["-i", audio_path]
 
         if subtitle_path and Path(subtitle_path).exists():
-            # ASS subtitles need escaped path on Windows
             safe_sub = str(Path(subtitle_path).resolve()).replace("\\", "/").replace(":", "\\:")
             video_filters.append(f"subtitles='{safe_sub}'")
 
@@ -192,11 +168,16 @@ class FFmpegRenderer:
         if video_filters:
             final_cmd += ["-vf", ",".join(video_filters)]
 
-        final_cmd += self._video_codec()
-        final_cmd += ["-c:a", "aac", "-b:a", "192k"]
+        # Map explicitly: input 0 for video, input 1 for audio (if available)
+        if has_audio:
+            final_cmd += ["-map", "0:v:0", "-map", "1:a:0"]
+        else:
+            final_cmd += ["-map", "0:v:0"]
 
-        if audio_path and Path(audio_path).exists():
-            final_cmd += ["-shortest"]
+        final_cmd += self._video_codec()
+        
+        if has_audio:
+            final_cmd += ["-c:a", "aac", "-b:a", "192k", "-shortest"]
 
         final_cmd.append(output_path)
 
@@ -205,7 +186,6 @@ class FFmpegRenderer:
         if res.returncode != 0:
             raise RuntimeError(f"Final render failed:\n{res.stderr[-2000:]}")
 
-        # ── Cleanup ───────────────────────────────────────────────────────────
         for tmp in [concat_file, concat_out]:
             try:
                 os.remove(tmp)
@@ -213,10 +193,6 @@ class FFmpegRenderer:
                 pass
 
         progress_callback(98, "Finalizing...")
-
-    # ──────────────────────────────────────────────────────────────────────────
-    # Thumbnail
-    # ──────────────────────────────────────────────────────────────────────────
 
     async def generate_thumbnail(self, video_path: str, output_path: str) -> str:
         """Extract a frame at 2 seconds as JPEG thumbnail."""
@@ -235,5 +211,4 @@ class FFmpegRenderer:
         return output_path
 
     def _build_ffmpeg_cmd(self, **kwargs) -> list[str]:
-        """Utility: build a base FFmpeg command with common flags."""
         return [self.ffmpeg, "-y", "-hide_banner", "-loglevel", "error"]
