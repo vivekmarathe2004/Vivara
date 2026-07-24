@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useSettingsStore } from '../store/settingsStore';
+import { useSettingsStore, DEFAULT_SETTINGS } from '../store/settingsStore';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
@@ -18,13 +18,17 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
 export const Settings: React.FC = () => {
   const { settings, fetchSettings, updateSettings, isLoading } = useSettingsStore();
   const { addToast } = useToast();
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<any>(settings || DEFAULT_SETTINGS);
   const [activeTab, setActiveTab] = useState<Tab>('llm');
 
-  useEffect(() => { fetchSettings(); }, []);
+  useEffect(() => { 
+    fetchSettings(); 
+  }, []);
 
   useEffect(() => {
-    if (settings) setFormData(settings);
+    if (settings) {
+      setFormData(settings);
+    }
   }, [settings]);
 
   const handleChange = (field: string, value: any) => {
@@ -39,14 +43,6 @@ export const Settings: React.FC = () => {
       addToast({ type: 'error', message: error.message || 'Failed to save settings' });
     }
   };
-
-  if (!settings) {
-    return (
-      <div className="p-8 flex justify-center items-center min-h-[400px]">
-        <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8 animate-fade-in">

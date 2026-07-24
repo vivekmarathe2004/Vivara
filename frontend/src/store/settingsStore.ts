@@ -24,8 +24,22 @@ export interface AppSettings {
   [key: string]: any;
 }
 
+export const DEFAULT_SETTINGS: AppSettings = {
+  llm_provider: 'omniroute',
+  llm_base_url: 'http://localhost:7777/v1',
+  llm_model: 'llama3.2',
+  tts_provider: 'kokoro',
+  tts_voice: 'af_heart',
+  edge_tts_voice: 'en-US-JennyNeural',
+  gtts_lang: 'en',
+  gpu_enabled: true,
+  whisper_model: 'base',
+  ffmpeg_path: 'ffmpeg',
+  storage_dir: '../storage',
+};
+
 interface SettingsStore {
-  settings: AppSettings | null;
+  settings: AppSettings;
   isLoading: boolean;
   error: string | null;
   fetchSettings: () => Promise<void>;
@@ -33,27 +47,28 @@ interface SettingsStore {
 }
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
-  settings: null,
+  settings: DEFAULT_SETTINGS,
   isLoading: false,
   error: null,
 
   fetchSettings: async () => {
     set({ isLoading: true, error: null });
     try {
-      const settings = await apiGet<AppSettings>('/api/settings');
-      set({ settings, isLoading: false });
+      const fetched = await apiGet<AppSettings>('/api/settings');
+      set({ settings: { ...DEFAULT_SETTINGS, ...fetched }, isLoading: false });
     } catch (error: any) {
-      set({ error: error.message || 'Failed to load settings', isLoading: false });
+      console.warn('Backend settings fetch warning, using defaults:', error.message);
+      set({ settings: get().settings || DEFAULT_SETTINGS, error: error.message || 'Failed to load settings', isLoading: false });
     }
   },
 
   updateSettings: async (newSettings: Partial<AppSettings>) => {
     set({ isLoading: true, error: null });
     try {
-      const currentSettings = get().settings || {};
+      const currentSettings = get().settings || DEFAULT_SETTINGS;
       const updated = { ...currentSettings, ...newSettings };
       const response = await apiPut<AppSettings>('/api/settings', updated);
-      set({ settings: response, isLoading: false });
+      set({ settings: { ...DEFAULT_SETTINGS, ...response }, isLoading: false });
     } catch (error: any) {
       set({ error: error.message || 'Failed to save settings', isLoading: false });
       throw error;
