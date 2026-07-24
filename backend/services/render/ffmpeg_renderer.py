@@ -1,8 +1,8 @@
 """
 FFmpeg Renderer
 ---------------
-Assembles stock video clips, images, voiceover audio, and subtitles into a final MP4.
-Supports NVENC (NVIDIA), AMF (AMD), and CPU fallback automatically.
+Assembles stock video clips, images, voiceover audio, background music, and subtitles into a final MP4.
+Supports NVENC (NVIDIA), AMF (AMD), CPU fallback, and Dynamic Audio Ducking.
 """
 from __future__ import annotations
 
@@ -12,12 +12,14 @@ import subprocess
 import json
 import shutil
 from pathlib import Path
+from backend.services.audio.music_generator import MusicManager
 
 
 class FFmpegRenderer:
     def __init__(self, ffmpeg_path: str = "ffmpeg", gpu_enabled: bool = True):
         self.ffmpeg = ffmpeg_path
         self.gpu_enabled = gpu_enabled
+        self.music_mgr = MusicManager(ffmpeg_path)
         self._gpu_info: dict | None = None
 
     def detect_gpu(self) -> dict:
@@ -110,6 +112,7 @@ class FFmpegRenderer:
     ):
         """Synchronous render — runs in a thread executor."""
         aspect = settings.get("aspect_ratio", "16:9")
+        bg_music_preset = settings.get("bg_music", "ambient")
         width, height = (1920, 1080) if aspect == "16:9" else (1080, 1920)
 
         progress_callback(10, "Building scene list...")
@@ -151,14 +154,25 @@ class FFmpegRenderer:
         if res.returncode != 0:
             raise RuntimeError(f"Concat failed:\n{res.stderr[-2000:]}")
 
-        progress_callback(60, "Mixing audio and subtitles...")
+        progress_callback(60, "Mixing voiceover & dynamic audio ducked music...")
         video_filters = []
+        audio_filters = []
         inputs = ["-i", concat_out]
 
-        has_audio = audio_path and Path(audio_path).exists()
-        if has_audio:
+        has_voice = audio_path and Path(audio_path).exists()
+        if has_voice:
             inputs += ["-i", audio_path]
 
+        # Check background music
+        music_track_path = ""
+        if bg_music_preset and bg_music_preset.lower() not in ["none", "off"]:
+            music_track_path = self.music_mgr.get_music_track(bg_music_preset, duration=120.0)
+
+        has_music = music_track_path and Path(music_track_path).exists()
+        if has_music:
+            inputs += ["-stream_loop", "-1", "-i", music_track_path]
+
+        # Subtitles filter
         if subtitle_path and Path(subtitle_path).exists():
             safe_sub = str(Path(subtitle_path).resolve()).replace("\\", "/").replace(":", "\\:")
             video_filters.append(f"subtitles='{safe_sub}'")
@@ -168,20 +182,26 @@ class FFmpegRenderer:
         if video_filters:
             final_cmd += ["-vf", ",".join(video_filters)]
 
-        # Map explicitly: input 0 for video, input 1 for audio (if available)
-        if has_audio:
+        # Map streams & Audio Ducking filter graph
+        if has_voice and has_music:
+            # Sidechain compression: input 2 (music) ducks when input 1 (voice) speaks
+            filter_complex = "[2:a][1:a]sidechaincompress=threshold=0.08:ratio=10:attack=10:release=300[bg_ducked];[1:a][bg_ducked]amix=inputs=2:weights=1 0.25[out_a]"
+            final_cmd += ["-filter_complex", filter_complex, "-map", "0:v:0", "-map", "[out_a]"]
+        elif has_voice:
+            final_cmd += ["-map", "0:v:0", "-map", "1:a:0"]
+        elif has_music:
             final_cmd += ["-map", "0:v:0", "-map", "1:a:0"]
         else:
             final_cmd += ["-map", "0:v:0"]
 
         final_cmd += self._video_codec()
         
-        if has_audio:
+        if has_voice or has_music:
             final_cmd += ["-c:a", "aac", "-b:a", "192k", "-shortest"]
 
         final_cmd.append(output_path)
 
-        progress_callback(75, "Running final FFmpeg pass...")
+        progress_callback(75, "Running final FFmpeg pass with audio ducking...")
         res = subprocess.run(final_cmd, capture_output=True, text=True)
         if res.returncode != 0:
             raise RuntimeError(f"Final render failed:\n{res.stderr[-2000:]}")
@@ -195,7 +215,6 @@ class FFmpegRenderer:
         progress_callback(98, "Finalizing...")
 
     async def generate_thumbnail(self, video_path: str, output_path: str) -> str:
-        """Extract a frame at 2 seconds as JPEG thumbnail."""
         cmd = [
             self.ffmpeg, "-y",
             "-ss", "2",

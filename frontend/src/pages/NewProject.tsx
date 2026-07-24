@@ -246,6 +246,19 @@ Narrator: In conclusion, mastering ${formData.topic || 'this concept'} gives you
                   {label: 'Minimal — Transparent', value: 'minimal'},
                 ]}
               />
+              <Select 
+                label="Background Music (Auto-Ducked)" 
+                value={formData.settings?.bg_music || 'ambient'}
+                onChange={e => updateSetting('bg_music', e.target.value)}
+                options={[
+                  {label: 'Ambient — Warm Atmospheric (Auto-Ducked)', value: 'ambient'},
+                  {label: 'Cinematic — Deep Synth (Auto-Ducked)', value: 'cinematic'},
+                  {label: 'Lo-Fi — Warm Chill Beats (Auto-Ducked)', value: 'lofi'},
+                  {label: 'Upbeat — Energetic Pulse (Auto-Ducked)', value: 'upbeat'},
+                  {label: 'Dramatic — Low Resonance (Auto-Ducked)', value: 'dramatic'},
+                  {label: 'None — Voiceover Only', value: 'none'},
+                ]}
+              />
             </div>
             
             <div className="pt-6 text-center">

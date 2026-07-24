@@ -359,8 +359,9 @@ class PipelineStageRunner:
         if settings.unsplash_api_key:
             providers.append(UnsplashProvider(settings.unsplash_api_key))
         
-        # Always append Openverse (100% free open license media, zero key required!)
+        # Always append Openverse and AIImageProvider (100% free, zero key required!)
         providers.append(OpenverseProvider())
+        ai_image_provider = AIImageProvider(model="flux")
 
         media_dir = proj_dir / "media"
         media_dir.mkdir(exist_ok=True)
@@ -398,6 +399,28 @@ class PipelineStageRunner:
                             break
                 except Exception:
                     continue
+
+            # Fallback to AI Image Generation if no stock video/photo found
+            if not downloaded:
+                try:
+                    self._set_progress(
+                        project_id, "media", progress,
+                        f"Generating AI concept image for scene {idx + 1}/{len(scenes)}: {query!r}"
+                    )
+                    ai_results = await ai_image_provider.search_images(query, per_page=1)
+                    if ai_results:
+                        dl_url = ai_results[0]["download_url"]
+                        out_path = str(media_dir / f"scene_{idx:03d}.jpg")
+                        await ai_image_provider.download(dl_url, out_path)
+                        media_manifest.append({
+                            "scene_index": idx,
+                            "query": query,
+                            "path": out_path,
+                            "source": "pollinations_ai_flux",
+                        })
+                        downloaded = True
+                except Exception:
+                    pass
 
             if not downloaded:
                 media_manifest.append({
