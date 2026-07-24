@@ -3,9 +3,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # LLM
     llm_provider: str = "omniroute"  # omniroute, auto, ollama, openai_compat, lm_studio, vllm, openrouter, custom
-    llm_base_url: str = "http://localhost:7777/v1"  # OmniRoute / Ollama default
+    llm_base_url: str = "http://localhost:20128/v1"  # OmniRoute / Local gateway endpoint
     llm_api_key: str = ""
-    llm_model: str = "llama3.2"
+    llm_model: str = "auto"
     
     # TTS Engines
     tts_provider: str = "kokoro"  # kokoro, edge_tts, elevenlabs, gtts, openai_tts

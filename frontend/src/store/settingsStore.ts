@@ -26,8 +26,8 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   llm_provider: 'omniroute',
-  llm_base_url: 'http://localhost:7777/v1',
-  llm_model: 'llama3.2',
+  llm_base_url: 'http://localhost:20128/v1',
+  llm_model: 'auto',
   tts_provider: 'kokoro',
   tts_voice: 'af_heart',
   edge_tts_voice: 'en-US-JennyNeural',
