@@ -31,9 +31,10 @@ from backend.services.media.pexels_provider import PexelsProvider
 from backend.services.media.pixabay_provider import PixabayProvider
 from backend.services.media.unsplash_provider import UnsplashProvider
 from backend.services.media.openverse_provider import OpenverseProvider
+from backend.services.media.ai_image_provider import AIImageProvider
 from backend.services.render.ffmpeg_renderer import FFmpegRenderer
+from backend.services.pipeline.resilience import with_retry, validate_audio_file, validate_media_file
 
-# Storage root (one level above backend/)
 STORAGE = Path(__file__).parent.parent.parent.parent / "storage"
 
 
@@ -50,7 +51,7 @@ def _update_stage(db: Session, stage: PipelineStage, **kwargs):
 
 
 class PipelineStageRunner:
-    """Runs individual pipeline stages for a given project."""
+    """Runs individual pipeline stages for a given project with built-in auto-retry resilience."""
 
     async def run_stage(self, project_id: str, stage_name: str) -> None:
         """Run or re-run a single named stage for *project_id*."""
@@ -89,7 +90,6 @@ class PipelineStageRunner:
                 completed_at=None,
             )
 
-            # Update parent project status to running
             project = db.query(Project).filter(Project.id == project_id).first()
             if project:
                 project.status = "running"
@@ -97,7 +97,7 @@ class PipelineStageRunner:
         finally:
             db.close()
 
-        # Run the actual stage logic
+        # Run the actual stage logic with failure protection
         try:
             await handler(project_id)
         except Exception as exc:
@@ -147,7 +147,6 @@ class PipelineStageRunner:
 
             await self.run_stage(project_id, stage_name)
 
-            # Stop if this stage errored
             db = _get_db()
             try:
                 stage = (
@@ -221,9 +220,10 @@ class PipelineStageRunner:
         return d
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Stage implementations
+    # Stage implementations with Auto-Retry Resilience
     # ──────────────────────────────────────────────────────────────────────────
 
+    @with_retry(max_retries=3, delay=1.0)
     async def _run_script(self, project_id: str) -> None:
         """Stage 1: Generate script using LLM."""
         db = _get_db()
@@ -264,6 +264,7 @@ class PipelineStageRunner:
 
         self._mark_done(project_id, "script", str(script_path), "Script generated successfully.")
 
+    @with_retry(max_retries=3, delay=1.5)
     async def _run_voice(self, project_id: str) -> None:
         """Stage 2: Generate voiceover using TTS."""
         db = _get_db()
@@ -288,6 +289,9 @@ class PipelineStageRunner:
         self._set_progress(project_id, "voice", 30, "Synthesizing speech...")
         tts_result = await tts.synthesize(script_text, audio_path, voice)
 
+        if not validate_audio_file(audio_path):
+            raise RuntimeError(f"Voice synthesis created an invalid audio file at '{audio_path}'. Retrying...")
+
         self._set_progress(project_id, "voice", 90, "Saving audio...")
         timings_path = proj_dir / "word_timings.json"
         timings_path.write_text(
@@ -299,6 +303,7 @@ class PipelineStageRunner:
             f"TTS complete. Duration: {tts_result.get('duration', 0):.1f}s"
         )
 
+    @with_retry(max_retries=2, delay=1.0)
     async def _run_subtitles(self, project_id: str) -> None:
         """Stage 3: Generate subtitles from the voiceover audio."""
         db = _get_db()
@@ -308,8 +313,8 @@ class PipelineStageRunner:
         finally:
             db.close()
 
-        if not audio_path or not Path(audio_path).exists():
-            raise ValueError("No voiceover audio found. Run the Voice stage first.")
+        if not validate_audio_file(audio_path):
+            raise ValueError("No valid voiceover audio found. Run the Voice stage first.")
 
         self._set_progress(project_id, "subtitles", 10, "Loading Whisper model...")
         whisper = WhisperService(settings.whisper_model)
@@ -333,6 +338,7 @@ class PipelineStageRunner:
             f"Subtitles generated. {len(transcript['segments'])} segments."
         )
 
+    @with_retry(max_retries=2, delay=1.0)
     async def _run_media(self, project_id: str) -> None:
         """Stage 4: Fetch stock media for each scene."""
         proj_dir = self._project_dir(project_id)
@@ -359,7 +365,6 @@ class PipelineStageRunner:
         if settings.unsplash_api_key:
             providers.append(UnsplashProvider(settings.unsplash_api_key))
         
-        # Always append Openverse and AIImageProvider (100% free, zero key required!)
         providers.append(OpenverseProvider())
         ai_image_provider = AIImageProvider(model="flux")
 
@@ -389,18 +394,19 @@ class PipelineStageRunner:
                             ext = ".jpg" if clip.get("type") == "image" else ".mp4"
                             out_path = str(media_dir / f"scene_{idx:03d}{ext}")
                             await provider.download(dl_url, out_path)
-                            media_manifest.append({
-                                "scene_index": idx,
-                                "query": query,
-                                "path": out_path,
-                                "source": clip.get("source", ""),
-                            })
-                            downloaded = True
-                            break
+                            if validate_media_file(out_path):
+                                media_manifest.append({
+                                    "scene_index": idx,
+                                    "query": query,
+                                    "path": out_path,
+                                    "source": clip.get("source", ""),
+                                })
+                                downloaded = True
+                                break
                 except Exception:
                     continue
 
-            # Fallback to AI Image Generation if no stock video/photo found
+            # Fallback to AI Image Generation if stock video/photo search yields no valid file
             if not downloaded:
                 try:
                     self._set_progress(
@@ -412,13 +418,14 @@ class PipelineStageRunner:
                         dl_url = ai_results[0]["download_url"]
                         out_path = str(media_dir / f"scene_{idx:03d}.jpg")
                         await ai_image_provider.download(dl_url, out_path)
-                        media_manifest.append({
-                            "scene_index": idx,
-                            "query": query,
-                            "path": out_path,
-                            "source": "pollinations_ai_flux",
-                        })
-                        downloaded = True
+                        if validate_media_file(out_path):
+                            media_manifest.append({
+                                "scene_index": idx,
+                                "query": query,
+                                "path": out_path,
+                                "source": "pollinations_ai_flux",
+                            })
+                            downloaded = True
                 except Exception:
                     pass
 
