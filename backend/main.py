@@ -4,8 +4,6 @@ from fastapi.staticfiles import StaticFiles
 import pathlib
 import sys
 
-# Ensure the VistaForge root (parent of backend/) is on sys.path so that
-# `from backend.X` imports resolve correctly regardless of working directory.
 _root = pathlib.Path(__file__).parent.parent
 if str(_root) not in sys.path:
     sys.path.insert(0, str(_root))
@@ -23,16 +21,17 @@ storage_path.mkdir(parents=True, exist_ok=True)
 (storage_path / "media").mkdir(exist_ok=True)
 (storage_path / "output").mkdir(exist_ok=True)
 (storage_path / "temp").mkdir(exist_ok=True)
+(storage_path / "music").mkdir(exist_ok=True)
 
 app = fastapi.FastAPI(
     title="Vivara API",
     description="Free, open-source AI video studio backend",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 app.add_middleware(
     cors.CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,4 +60,4 @@ async def startup_event():
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "1.0.0"}
+    return {"status": "ok", "version": "2.0.0", "app": "Vivara Studio"}

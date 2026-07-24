@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { SetupWizard } from './pages/SetupWizard';
@@ -32,6 +32,7 @@ function App() {
               <Route path="/project/:id" element={<ProjectDetail />} />
               <Route path="/clip" element={<ClipMode />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Layout>
         }

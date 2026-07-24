@@ -4,6 +4,11 @@ import { createSSE } from '../api/client';
 export function useSSE(url: string | null, onMessage: (data: any) => void) {
   const [connected, setConnected] = useState(false);
   const sseRef = useRef<EventSource | null>(null);
+  const callbackRef = useRef(onMessage);
+
+  useEffect(() => {
+    callbackRef.current = onMessage;
+  }, [onMessage]);
 
   useEffect(() => {
     if (!url) {
@@ -15,17 +20,34 @@ export function useSSE(url: string | null, onMessage: (data: any) => void) {
       return;
     }
 
-    const sse = createSSE(url, onMessage);
-    sseRef.current = sse;
+    let isMounted = true;
+    let sse: EventSource | null = null;
 
-    sse.onopen = () => setConnected(true);
-    sse.onerror = () => {
-      setConnected(false);
-      sse.close();
+    const connect = () => {
+      if (!isMounted) return;
+      sse = createSSE(url, (data) => {
+        if (callbackRef.current) {
+          callbackRef.current(data);
+        }
+      });
+      sseRef.current = sse;
+
+      sse.onopen = () => {
+        if (isMounted) setConnected(true);
+      };
+
+      sse.onerror = () => {
+        if (isMounted) setConnected(false);
+      };
     };
 
+    connect();
+
     return () => {
-      sse.close();
+      isMounted = false;
+      if (sse) {
+        sse.close();
+      }
       setConnected(false);
     };
   }, [url]);

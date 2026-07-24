@@ -12,9 +12,8 @@ export function useProject(projectId: string | undefined) {
   }, [projectId]);
 
   useSSE(projectId ? `/api/jobs/${projectId}/stream` : null, (data) => {
-    if (data.type === 'stage_update' && currentProject) {
-      // Optimistically update the store if needed, or re-fetch project
-      fetchProject(projectId!);
+    if (data && projectId) {
+      fetchProject(projectId);
     }
   });
 
